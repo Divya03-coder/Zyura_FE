@@ -109,6 +109,17 @@ export const professionalApi = baseAPI.injectEndpoints({
       },
       invalidatesTags: ["AllExamForProfessional"],
     }),
+   checkDuplicateExamMCQ: build.mutation<
+  any,
+  { question: string; examId: string | null; examType?: string }
+>({
+      query: (data) => ({
+        url: `/exam/check-duplicate`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["AllExamForProfessional"],
+    }),
     deleteSingleExamMcqForProfessional: build.mutation<
       any,
       { examId: string; mcqId: string }
@@ -125,6 +136,7 @@ export const professionalApi = baseAPI.injectEndpoints({
 });
 
 export const {
+  useCheckDuplicateExamMCQMutation,
   useGetAllExamForProfessionalQuery,
   useGetSingleExamForProfessionalQuery,
   useCreateExamManualForProfessionalMutation,

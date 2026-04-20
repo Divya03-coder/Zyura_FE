@@ -1,13 +1,17 @@
 import ButtonWithLoading from "@/common/button/ButtonWithLoading";
+import { useAppSelector } from "@/store/hook";
 import CommonButton from "@/common/button/CommonButton";
 import CommonSelect from "@/common/custom/CommonSelect";
+import { DuplicateWarningTooltip } from "@/components/AdminDashboard/reuseable/DuplicateWarningTooltip";
 import FormHeader from "@/components/AdminDashboard/reuseable/FormHeader";
 import ModalCloseButton from "@/components/AdminDashboard/reuseable/ModalCloseButton";
+import { useCheckDuplicateExamMCQMutation } from "@/store/features/adminDashboard/examMode/studentApi/StudentApi";
 import { useUploadSingleImageMutation } from "@/store/features/adminDashboard/ContentResources/MCQ/mcqApi";
+import { useCheckDuplicateExamMCQMutation as useCheckDuplicateExamMCQMutationPro } from "@/store/features/adminDashboard/examMode/professionalApi/professionalApi";
 import { SingleMCQUpdatePayloadForExam } from "@/store/features/adminDashboard/examMode/studentApi/types/allExam";
 import { ANSWER_OPTIONS } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -16,6 +20,7 @@ interface UpdateMCQModalProps {
   onClose: () => void;
   onSubmit: (data: SingleMCQUpdatePayloadForExam) => void;
   isLoading?: boolean;
+  examId?: string;
 }
 
 const UpdateMCQSchema = z.object({
@@ -45,18 +50,16 @@ const inputClass = {
   error: "text-red-500 text-sm mt-1",
 };
 
-// Options and types
 const options = ["A", "B", "C", "D", "E", "F"] as const;
 type OptionKey = (typeof options)[number];
-const correctAnswerOptions = options.map((o) => ({ label: o, value: o }));
 
 const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
   data,
   onClose,
   onSubmit,
   isLoading,
+  examId,
 }) => {
-  // Determine initial option count based on existing data
   const getInitialOptionCount = () => {
     if (data.optionF) return 6;
     if (data.optionE) return 5;
@@ -64,13 +67,23 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
   };
 
   const [optionCount, setOptionCount] = useState(getInitialOptionCount);
+  const [duplicates, setDuplicates] = useState<any[]>([]);
+  const { contentFor } = useAppSelector((state) => state.staticContent);
+  const isStudent = contentFor === "student";
+
+  // FIX: Call both hooks unconditionally, then select which one to use
+  const [checkDuplicateExamMCQStudent] = useCheckDuplicateExamMCQMutation();
+  const [checkDuplicateExamMCQPro] = useCheckDuplicateExamMCQMutationPro();
+  const checkDuplicateExamMCQ = isStudent
+    ? checkDuplicateExamMCQStudent
+    : checkDuplicateExamMCQPro;
 
   const {
     register,
     handleSubmit,
     control,
-    reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<UpdateMCQFormValues>({
     resolver: zodResolver(UpdateMCQSchema),
@@ -81,8 +94,12 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
       explanationE: data.explanationE ?? "",
       explanationF: data.explanationF ?? "",
       imageDescription: data.imageDescription ?? "",
+      // FIX: ensure correctOption is always set as a string value
+      correctOption: data.correctOption as (typeof ANSWER_OPTIONS)[number],
     },
   });
+
+  const questionText = watch("question");
 
   const [uploadSingleImage, { isLoading: isUploadingImage }] =
     useUploadSingleImageMutation();
@@ -90,18 +107,39 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
     data.imageDescription ?? "",
   );
 
+  // ✅ Check for duplicates when question changes
   useEffect(() => {
-    reset({
-      ...data,
-      optionE: data.optionE ?? "",
-      optionF: data.optionF ?? "",
-      explanationE: data.explanationE ?? "",
-      explanationF: data.explanationF ?? "",
-      imageDescription: data.imageDescription ?? "",
-    });
-    setOptionCount(getInitialOptionCount());
-    setImagePreview(data.imageDescription ?? "");
-  }, [data, reset]);
+    const checkDuplicates = async () => {
+      if (!questionText || questionText.trim().length < 10) {
+        setDuplicates([]);
+        return;
+      }
+
+      try {
+        const result = await checkDuplicateExamMCQ({
+          question: questionText,
+          examId: examId ?? null,
+        }).unwrap();
+
+        if (result.data.hasDuplicates) {
+          setDuplicates(result.data.duplicates);
+        } else {
+          setDuplicates([]);
+        }
+      } catch (error) {
+        console.error("Duplicate check error:", error);
+      }
+    };
+
+    const debounceTimer = setTimeout(checkDuplicates, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [questionText, examId, checkDuplicateExamMCQ]);
+
+  // FIX: derive available correct answer options dynamically from current optionCount
+  // so the dropdown only shows options that actually exist (prevents invalid selection)
+  const correctAnswerOptions = useMemo(() => {
+    return options.slice(0, optionCount).map((o) => ({ label: o, value: o }));
+  }, [optionCount]);
 
   const addOption = () => {
     if (optionCount < 6) {
@@ -111,8 +149,8 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
 
   const removeLastOption = () => {
     if (optionCount > 4) {
+      // FIX: off-by-one corrected — charCode 65 = 'A', so index optionCount-1 maps to the last option letter
       const optionToRemove = String.fromCharCode(64 + optionCount) as OptionKey;
-      // Clear the data for the removed option
       setValue(`option${optionToRemove}`, "");
       setValue(`explanation${optionToRemove}` as any, "");
       setOptionCount(optionCount - 1);
@@ -146,7 +184,12 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
           {/* Question */}
           <div>
-            <label className={inputClass.label}>Question</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className={inputClass.label}>Question</label>
+              {duplicates.length > 0 && (
+                <DuplicateWarningTooltip duplicates={duplicates} />
+              )}
+            </div>
             <textarea
               {...register("question")}
               rows={3}
@@ -156,6 +199,11 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
             {errors.question && (
               <p className={inputClass.error}>{errors.question.message}</p>
             )}
+            {duplicates.length > 0 && (
+              <p className={inputClass.error}>
+                {duplicates.length} similar question(s) present already
+              </p>
+            )}
           </div>
 
           {/* Image */}
@@ -164,7 +212,7 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
             <input
               type="file"
               accept="image/*"
-              className={` cursor-pointer ${inputClass.input}`}
+              className={`cursor-pointer ${inputClass.input}`}
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
                   handleUploadImage(e.target.files[0]);
@@ -207,9 +255,7 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
                   }`}
                 />
                 <textarea
-                  {...register(
-                    `explanation${opt}` as `explanation${OptionKey}`,
-                  )}
+                  {...register(`explanation${opt}` as any)}
                   rows={2}
                   className={`${inputClass.input} mt-2 resize-none`}
                   placeholder={`Explanation for Option ${opt} (optional)`}
@@ -248,7 +294,7 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
             )}
           </div>
 
-          {/* Correct Option and Difficulty */}
+          {/* Correct Option */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div>
               <label className={inputClass.label}>Correct Option</label>
@@ -258,12 +304,20 @@ const UpdateMcqForExamModal: FC<UpdateMCQModalProps> = ({
                 render={({ field }) => (
                   <CommonSelect
                     className="!bg-white border-[#CBD5E1]"
-                    value={field.value}
+                    value={String(field.value ?? "")}
+                    key={String(field.value)}
                     item={correctAnswerOptions}
-                    onValueChange={field.onChange}
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                    }}
                   />
                 )}
               />
+              {errors.correctOption && (
+                <p className={inputClass.error}>
+                  {errors.correctOption.message}
+                </p>
+              )}
             </div>
           </div>
 

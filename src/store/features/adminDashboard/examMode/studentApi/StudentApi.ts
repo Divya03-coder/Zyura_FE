@@ -96,6 +96,17 @@ export const studentApi = baseAPI.injectEndpoints({
       },
       invalidatesTags: ["AllExam"],
     }),
+    checkDuplicateExamMCQ: build.mutation<
+  any,
+  { question: string; examId: string | null; examType?: string }
+>({
+      query: (data) => ({
+        url: `/exam/check-duplicate`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["AllExam"],
+    }),
     deleteSingleExamMcq: build.mutation<any, { examId: string; mcqId: string }>(
       {
         query: ({ examId, mcqId }) => {
@@ -111,6 +122,7 @@ export const studentApi = baseAPI.injectEndpoints({
 });
 
 export const {
+  useCheckDuplicateExamMCQMutation,
   useGetAllExamForStudentQuery,
   useGetSingleExamQuery,
   useDeleteSingleExamMcqMutation,

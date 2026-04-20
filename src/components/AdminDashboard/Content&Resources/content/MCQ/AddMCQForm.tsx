@@ -3,16 +3,18 @@ import CommonSelect from "@/common/custom/CommonSelect";
 import CommonBorderWrapper from "@/common/space/CommonBorderWrapper";
 import {
   useAddMoreMcqToMcqBankMutation,
+  useCheckDuplicateMCQMutation,
   useUploadManualMcqMutation,
   useUploadSingleImageMutation,
 } from "@/store/features/adminDashboard/ContentResources/MCQ/mcqApi";
+import { DuplicateWarningTooltip } from "@/components/AdminDashboard/reuseable/DuplicateWarningTooltip";
 import { setUploadIntoBank } from "@/store/features/adminDashboard/staticContent/staticContentSlice";
 import { useAppSelector } from "@/store/hook";
 import { RootState } from "@/store/store";
 import { correctAnswerOptions } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -124,6 +126,34 @@ const AddMCQForm: React.FC<AddMCQFormProps> = ({ handleCancel }) => {
     control,
     name: "mcqs",
   });
+
+  const [checkDuplicateMCQ] = useCheckDuplicateMCQMutation();
+
+  const [duplicates, setDuplicates] = useState<Record<number, any[]>>({});
+
+  const mcqs = useWatch({ control, name: "mcqs" }) || [];
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      const newDuplicates: Record<number, any[]> = {};
+      for (let qIndex = 0; qIndex < mcqs.length; qIndex++) {
+        const questionText = mcqs[qIndex]?.question || '';
+        if (questionText.length >= 10) {
+          try {
+            const result = await checkDuplicateMCQ({ question: questionText }).unwrap();
+            if (result.data.hasDuplicates) {
+              newDuplicates[qIndex] = result.data.duplicates;
+            }
+          } catch (error) {
+            console.error("Duplicate check error:", error);
+          }
+        }
+      }
+      setDuplicates(newDuplicates);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [mcqs, checkDuplicateMCQ]);
 
   const [uploadSingleImage, { isLoading: isUploadingImage }] =
     useUploadSingleImageMutation();
@@ -252,7 +282,12 @@ const AddMCQForm: React.FC<AddMCQFormProps> = ({ handleCancel }) => {
 
           <div className="space-y-6">
             <div>
-              <label className={inputClass.label}>Question</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className={inputClass.label}>Question</label>
+{duplicates[qIndex] && duplicates[qIndex].length === 1 && (
+                  <DuplicateWarningTooltip duplicates={duplicates[qIndex]} />
+                )}
+              </div>
               <textarea
                 {...register(`mcqs.${qIndex}.question`)}
                 rows={4}
@@ -262,6 +297,11 @@ const AddMCQForm: React.FC<AddMCQFormProps> = ({ handleCancel }) => {
               {errors.mcqs?.[qIndex]?.question && (
                 <p className={inputClass.error}>
                   {errors.mcqs[qIndex]?.question?.message}
+                </p>
+              )}
+{duplicates[qIndex] && duplicates[qIndex].length === 1 && (
+                <p className={inputClass.error}>
+                  Similar question is present already
                 </p>
               )}
             </div>

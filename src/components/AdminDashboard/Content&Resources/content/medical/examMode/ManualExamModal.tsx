@@ -6,13 +6,16 @@ import ModalCloseButton from "@/components/AdminDashboard/reuseable/ModalCloseBu
 import { useUploadSingleImageMutation } from "@/store/features/adminDashboard/ContentResources/MCQ/mcqApi";
 import { useCreateExamManualForProfessionalMutation } from "@/store/features/adminDashboard/examMode/professionalApi/professionalApi";
 import {
+  useCheckDuplicateExamMCQMutation,
   useCreateExamManualMutation,
 } from "@/store/features/adminDashboard/examMode/studentApi/StudentApi";
+import { useCheckDuplicateExamMCQMutation as useCheckDuplicateExamMCQMutationPro } from "@/store/features/adminDashboard/examMode/professionalApi/professionalApi";
+import { DuplicateWarningTooltip } from "@/components/AdminDashboard/reuseable/DuplicateWarningTooltip";
 import { useAppSelector } from "@/store/hook";
 import { RootState } from "@/store/store";
 import { correctAnswerOptions } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import ActionButtons from "../../ActionButtons";
@@ -121,6 +124,15 @@ const ManualExamModal: React.FC<CreateExamModalProps> = ({ onClose }) => {
     { isLoading: isUploadingForProfessional },
   ] = useCreateExamManualForProfessionalMutation();
 
+  // FIX: Call both hooks unconditionally, then select which one to use
+  const [checkDuplicateExamMCQStudent] = useCheckDuplicateExamMCQMutation();
+  const [checkDuplicateExamMCQPro] = useCheckDuplicateExamMCQMutationPro();
+  const checkDuplicateExamMCQ = isStudent
+    ? checkDuplicateExamMCQStudent
+    : checkDuplicateExamMCQPro;
+
+  const [duplicates, setDuplicates] = useState<Record<number, any[]>>({});
+
   const defaultOptions = [
     { option: "A", optionText: "", explanation: "" },
     { option: "B", optionText: "", explanation: "" },
@@ -170,6 +182,37 @@ const ManualExamModal: React.FC<CreateExamModalProps> = ({ onClose }) => {
   const [optionCounts, setOptionCounts] = useState<Record<number, number>>({
     0: 4,
   });
+
+  // Duplicate detection for each question
+  const questions = watch("mcqs");
+
+  useEffect(() => {
+    const checkDuplicatesForAllQuestions = async () => {
+      const newDuplicates: Record<number, any[]> = {};
+      for (let qIndex = 0; qIndex < questions.length; qIndex++) {
+        const questionText = questions[qIndex]?.question;
+        if (!questionText || questionText.trim().length < 10) {
+          newDuplicates[qIndex] = [];
+          continue;
+        }
+        try {
+          const result = await checkDuplicateExamMCQ({
+            question: questionText,
+            examId: null, // null is valid per the type
+            examType: "student", // optional, include if needed
+          }).unwrap();
+          newDuplicates[qIndex] = result.data.duplicates || [];
+        } catch (error) {
+          console.error(`Duplicate check error for question ${qIndex}:`, error);
+          newDuplicates[qIndex] = [];
+        }
+      }
+      setDuplicates(newDuplicates);
+    };
+
+    const debounceTimer = setTimeout(checkDuplicatesForAllQuestions, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [questions, checkDuplicateExamMCQ]);
 
   const addOption = (qIndex: number) => {
     setOptionCounts((prev) => ({
@@ -355,6 +398,9 @@ const ManualExamModal: React.FC<CreateExamModalProps> = ({ onClose }) => {
                     <p className={inputClass.error}>
                       {errors.mcqs[qIndex]?.question?.message}
                     </p>
+                  )}
+                  {duplicates[qIndex] && duplicates[qIndex].length > 0 && (
+                    <DuplicateWarningTooltip duplicates={duplicates[qIndex]} />
                   )}
                 </div>
 

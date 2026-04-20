@@ -4,9 +4,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"; // update path if needed
+} from "@/components/ui/select";
 
-// generic SelectOption interface
 export interface SelectOption<T extends string> {
   label: string;
   value: T;
@@ -33,12 +32,17 @@ const CommonSelect = <T extends string>({
   placeholder,
 }: SelectProps<T>) => {
   return (
-    <Select value={value || undefined} onValueChange={onValueChange}>
+    <Select
+      // REMOVE THIS LINE - it causes remounting on every value change
+      // key={value}                        
+      value={value || undefined}
+      onValueChange={onValueChange}
+    >
       <SelectTrigger
         style={{ minWidth: w }}
-        className={` ${className} bg-[#FCFCFC] border !border-[#CBD5E1] px-3 py-3 cursor-pointer rounded-md  text-sm  transition-all duration-200 ${
+        className={`${className} bg-[#FCFCFC] border !border-[#CBD5E1] px-3 py-3 cursor-pointer rounded-md text-sm transition-all duration-200 ${
           disabled && "opacity-50 cursor-not-allowed"
-        } `}
+        }`}
       >
         <SelectValue placeholder={placeholder || "Select an option"} />
       </SelectTrigger>

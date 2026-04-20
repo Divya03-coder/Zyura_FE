@@ -1,19 +1,22 @@
 import ButtonWithLoading from "@/common/button/ButtonWithLoading";
 import CommonButton from "@/common/button/CommonButton";
 import CommonSelect from "@/common/custom/CommonSelect";
+import { DuplicateWarningTooltip } from "@/components/AdminDashboard/reuseable/DuplicateWarningTooltip";
 import FormHeader from "@/components/AdminDashboard/reuseable/FormHeader";
 import ModalCloseButton from "@/components/AdminDashboard/reuseable/ModalCloseButton";
-import { useUploadSingleImageMutation } from "@/store/features/adminDashboard/ContentResources/MCQ/mcqApi";
+import { useCheckDuplicateMCQMutation, useUploadSingleImageMutation } from "@/store/features/adminDashboard/ContentResources/MCQ/mcqApi";
 import { ANSWER_OPTIONS, CorrectAnswerOption, DifficultyLevel } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FC, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
+
 interface UpdateMCQModalProps {
   data: BackendMCQData;
   onClose: () => void;
   onSubmit: (data: BackendMCQData) => void;
   isLoading?: boolean;
+  mcqBankId?: string;
 }
 
 export interface BackendMCQData {
@@ -81,6 +84,7 @@ const UpdateMcqModal: FC<UpdateMCQModalProps> = ({
   onClose,
   onSubmit,
   isLoading,
+  mcqBankId,
 }) => {
   // Determine initial option count
   const getInitialOptionCount = () => {
@@ -90,6 +94,8 @@ const UpdateMcqModal: FC<UpdateMCQModalProps> = ({
   };
 
   const [optionCount, setOptionCount] = useState(getInitialOptionCount);
+  const [duplicates, setDuplicates] = useState<any[]>([]);
+  const [checkDuplicateMCQ] = useCheckDuplicateMCQMutation();
 
   const {
     register,
@@ -97,6 +103,7 @@ const UpdateMcqModal: FC<UpdateMCQModalProps> = ({
     control,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<UpdateMCQFormValues>({
     resolver: zodResolver(UpdateMCQSchema),
@@ -108,6 +115,9 @@ const UpdateMcqModal: FC<UpdateMCQModalProps> = ({
       explanationF: data.explanationF ?? "",
     },
   });
+
+  const questionText = watch("question");
+
   const [uploadSingleImage, { isLoading: isUploadingImage }] =
     useUploadSingleImageMutation();
   const [imagePreview, setImagePreview] = useState<string>(
@@ -126,6 +136,34 @@ const UpdateMcqModal: FC<UpdateMCQModalProps> = ({
     setOptionCount(getInitialOptionCount());
     setImagePreview(data.imageDescription ?? "");
   }, [data, reset]);
+
+  // ✅ Check for duplicates when question changes
+  useEffect(() => {
+    const checkDuplicates = async () => {
+      if (!questionText || questionText.trim().length < 10) {
+        setDuplicates([]);
+        return;
+      }
+
+      try {
+        const result = await checkDuplicateMCQ({
+          question: questionText,
+          excludeBankId: mcqBankId,
+        }).unwrap();
+
+        if (result.data.hasDuplicates) {
+          setDuplicates(result.data.duplicates);
+        } else {
+          setDuplicates([]);
+        }
+      } catch (error) {
+        console.error("Duplicate check error:", error);
+      }
+    };
+
+    const debounceTimer = setTimeout(checkDuplicates, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [questionText, mcqBankId, checkDuplicateMCQ]);
 
   const addOption = () => {
     if (optionCount < 6) {
@@ -168,7 +206,12 @@ const UpdateMcqModal: FC<UpdateMCQModalProps> = ({
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
           <div>
-            <label className={inputClass.label}>Question</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className={inputClass.label}>Question</label>
+              {duplicates.length > 0 && (
+                <DuplicateWarningTooltip duplicates={duplicates} />
+              )}
+            </div>
             <textarea
               {...register("question")}
               className={inputClass.input}

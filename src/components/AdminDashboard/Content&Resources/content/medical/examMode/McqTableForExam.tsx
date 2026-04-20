@@ -123,6 +123,12 @@ const McqTableForExam: React.FC<McqTableProps> = ({
   const [selectedMCQ, setSelectedMCQ] = useState<ExamMcq | null>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
 
+  const handleEditClick = (mcq: ExamMcq) => {
+    console.log("selectedMCQ raw data:", JSON.stringify(mcq, null, 2));
+    setSelectedMCQ(mcq);
+    setIsUpdateModalOpen(true);
+  };
+
   const handleUpdate = async (updatedData: SingleMCQUpdatePayloadForExam) => {
     if (!selectedMCQ || !examId) return;
 
@@ -249,10 +255,7 @@ const McqTableForExam: React.FC<McqTableProps> = ({
                     <TableCell className={tableDesign.cell}>
                       <div className="flex justify-center gap-2">
                         <TableAction
-                          handleEdit={() => {
-                            setSelectedMCQ(mcq);
-                            setIsUpdateModalOpen(true);
-                          }}
+                          handleEdit={() => handleEditClick(mcq)}
                           handleDelete={() =>
                             handleDeleteClick({
                               examId: data?.data.data._id!,
@@ -282,36 +285,44 @@ const McqTableForExam: React.FC<McqTableProps> = ({
 
       {isUpdateModalOpen && selectedMCQ && (
         <UpdateMcqForExamModal
-          data={{
-            question: selectedMCQ.question,
-            optionA: selectedMCQ.options[0]?.optionText || "",
-            optionB: selectedMCQ.options[1]?.optionText || "",
-            optionC: selectedMCQ.options[2]?.optionText || "",
-            optionD: selectedMCQ.options[3]?.optionText || "",
-            optionE: selectedMCQ.options[4]?.optionText || "",
-            optionF: selectedMCQ.options[5]?.optionText || "",
-            correctOption: selectedMCQ.correctOption as
-              | "A"
-              | "B"
-              | "C"
-              | "D"
-              | "E"
-              | "F",
+         key={selectedMCQ.mcqId}
+          data={(() => {
+            // FIX: find each option by its label field, not by array index
+            const findOption = (label: string) =>
+              selectedMCQ.options.find((o) => o.option === label);
 
-            imageDescription: selectedMCQ.imageDescription || "",
-            explanationA: selectedMCQ.options[0]?.explanation || "",
-            explanationB: selectedMCQ.options[1]?.explanation || "",
-            explanationC: selectedMCQ.options[2]?.explanation || "",
-            explanationD: selectedMCQ.options[3]?.explanation || "",
-            explanationE: selectedMCQ.options[4]?.explanation || "",
-            explanationF: selectedMCQ.options[5]?.explanation || "",
-          }}
+            return {
+              question: selectedMCQ.question,
+              imageDescription: selectedMCQ.imageDescription || "",
+              correctOption: selectedMCQ.correctOption as
+                | "A"
+                | "B"
+                | "C"
+                | "D"
+                | "E"
+                | "F",
+
+              optionA: findOption("A")?.optionText || "",
+              optionB: findOption("B")?.optionText || "",
+              optionC: findOption("C")?.optionText || "",
+              optionD: findOption("D")?.optionText || "",
+              optionE: findOption("E")?.optionText || "",
+              optionF: findOption("F")?.optionText || "",
+
+              explanationA: findOption("A")?.explanation || "",
+              explanationB: findOption("B")?.explanation || "",
+              explanationC: findOption("C")?.explanation || "",
+              explanationD: findOption("D")?.explanation || "",
+              explanationE: findOption("E")?.explanation || "",
+              explanationF: findOption("F")?.explanation || "",
+            };
+          })()}
           onClose={() => setIsUpdateModalOpen(false)}
           onSubmit={handleUpdate}
           isLoading={isUpdateLoading}
+          examId={examId}
         />
       )}
-
       {isMoreMCQModalOpen && examId && (
         <AddMoreMCQ
           onClose={() => setIsMoreMCQModalOpen(false)}

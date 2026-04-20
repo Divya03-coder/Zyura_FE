@@ -36,9 +36,9 @@ const trimHierarchyQuery = (params: {
 }) => ({
   ...params,
   subject: params.subject.trim(),
-  system: params.system?.trim() ?? "",
-  topic: params.topic?.trim() ?? "",
-  subtopic: params.subtopic?.trim() ?? "",
+  system: params.system?.trim() || undefined,
+  topic: params.topic?.trim() || undefined,
+  subtopic: params.subtopic?.trim() || undefined,
   profileType: params.profileType?.trim() || undefined,
   searchTerm:
     params.searchTerm !== undefined ? params.searchTerm.trim() : undefined,
@@ -63,6 +63,7 @@ export const mcqApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["Mcq", "StudyModeTree", "SingleMcq", "Exams"],
     }),
+
     // for mcq bank
     getSingleMcqApi: build.query<SingleMcqData, string>({
       query: (id) => ({
@@ -74,23 +75,31 @@ export const mcqApi = baseAPI.injectEndpoints({
         message: string;
         data: SingleMcqData;
       }) => response.data,
-
       providesTags: ["Mcq"],
     }),
-    UploadBulkMcqApi: build.mutation<void, FormData>({
+
+    UploadBulkMcqApi: build.mutation<
+      { success: boolean; message: string },
+      FormData
+    >({
       query: (formdata) => ({
         url: `/mcq-bank/upload-bulk`,
         method: "POST",
         body: formdata,
       }),
     }),
-    UploadManualMcq: build.mutation<void, ManualMCQBank>({
+
+    UploadManualMcq: build.mutation<
+      { success: boolean; message: string },
+      ManualMCQBank
+    >({
       query: (data) => ({
         url: `/mcq-bank/upload-manual`,
         method: "POST",
         body: data,
       }),
     }),
+
     uploadSingleImage: build.mutation<UploadImageResponse, FormData>({
       query: (data) => ({
         url: `/aws/upload-single-image`,
@@ -99,7 +108,7 @@ export const mcqApi = baseAPI.injectEndpoints({
       }),
     }),
 
-    // for single  mcq
+    // for single mcq
     getSingleMcq: build.query<
       SingleMCQResponse,
       {
@@ -128,6 +137,7 @@ export const mcqApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["SingleMcq", "Mcq", "StudyModeTree", "Exams"],
     }),
+
     updatedSingleMcqApi: build.mutation<
       void,
       { data: SingleMCQUpdatePayload; mcqBankId: string; mcqId: string }
@@ -139,6 +149,7 @@ export const mcqApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["SingleMcq", "Mcq", "StudyModeTree", "Exams"],
     }),
+
     getSingleMcqApiForSupport: build.query<
       GetSingleMcqData,
       { mcqBankId: string; mcqId: string }
@@ -151,7 +162,6 @@ export const mcqApi = baseAPI.injectEndpoints({
     }),
 
     // /mcq-bank/add-more-mcq
-
     addMoreMcqToMcqBank: build.mutation<
       void,
       { mcqBankId: string; data: FormData } & UploadMode
@@ -164,8 +174,36 @@ export const mcqApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["SingleMcq", "Mcq", "StudyModeTree"],
     }),
-    //student type get and post
 
+    // ✅ Check duplicate MCQ endpoint
+    checkDuplicateMCQ: build.mutation<
+      {
+        success: boolean;
+        data: {
+          hasDuplicates: boolean;
+          duplicates: Array<{
+            mcqId: string;
+            bankName?: string;
+            examName?: string;
+            question: string;
+          }>;
+          count: number;
+        };
+      },
+      {
+        question: string;
+        excludeBankId?: string;
+        excludeExamId?: string;
+      }
+    >({
+      query: (data) => ({
+        url: "/mcq-bank/check-duplicate",
+        method: "POST",
+        body: data,
+      }),
+    }),
+
+    // student type
     getStudentTypeApi: build.query<ProfileTypeResponse, ProfileParams>({
       query: (params) => ({
         url: "/profile_type_const/all",
@@ -175,7 +213,10 @@ export const mcqApi = baseAPI.injectEndpoints({
       providesTags: ["studentType"],
     }),
 
-    createStudentTypeApi: build.mutation<void, CreateProfileTypePayload>({
+    createStudentTypeApi: build.mutation<
+      void,
+      CreateProfileTypePayload
+    >({
       query: (data) => ({
         url: "/profile_type_const/create",
         method: "POST",
@@ -183,6 +224,7 @@ export const mcqApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["studentType"],
     }),
+
     updateStudentTypeApi: build.mutation<
       void,
       { _id: string; typeName: string }
@@ -212,6 +254,7 @@ export const mcqApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["StudyModeTree"],
     }),
+
     updateStudyModeTree: build.mutation<
       void,
       { treeId: string; data: PostStudyModeTree }
@@ -224,7 +267,10 @@ export const mcqApi = baseAPI.injectEndpoints({
       invalidatesTags: ["StudyModeTree"],
     }),
 
-    getStudyModeTree: build.query<GetStudyModeTree, GetStudyModeTreeParams>({
+    getStudyModeTree: build.query<
+      GetStudyModeTree,
+      GetStudyModeTreeParams
+    >({
       query: (params) => ({
         url: `/study_mode_tree/all`,
         method: "GET",
@@ -298,8 +344,8 @@ export const mcqApi = baseAPI.injectEndpoints({
         url: `/report/all-reporter`,
         method: "GET",
       }),
+      providesTags: ["ReportResponse"],
     }),
-    //end
   }),
   overrideExisting: false,
 });
@@ -327,4 +373,5 @@ export const {
   useGetSingleUserReportQuery,
   useAddMoreMcqToMcqBankMutation,
   useGetSingleMcqApiForSupportQuery,
+  useCheckDuplicateMCQMutation,
 } = mcqApi;

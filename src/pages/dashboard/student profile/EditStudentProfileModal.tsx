@@ -22,6 +22,8 @@ import { useAppDispatch } from "@/hooks/useRedux";
 import { setUser, selectToken } from "@/store/features/auth/auth.slice";
 import { useSelector } from "react-redux";
 import { examOptions } from "@/pages/authPage/constants";
+import PhoneInput from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
 
 export default function EditStudentProfileModal({ open, setOpen, user }: any) {
   const dispatch = useAppDispatch();
@@ -30,29 +32,31 @@ export default function EditStudentProfileModal({ open, setOpen, user }: any) {
   const [getMe] = useLazyGetMeQuery();
 
   const [firstName, setFirstName] = useState(user.profile?.firstName || "");
-  const [phone, setPhone] = useState(user.profile?.phone || "");
+ const [phone, setPhone] = useState<string | undefined>();
   const [lastName, setLastName] = useState(user.profile?.lastName || "");
   const [university, setUniversity] = useState(user.profile?.university || "");
   const [country, setCountry] = useState(user.profile?.country || "");
-  const [yearOfStudy, setYearOfStudy] = useState(user.profile?.year_of_study || "");
-  const [studentType, setStudentType] = useState(user.profile?.studentType || "");
+  const [yearOfStudy, setYearOfStudy] = useState(
+    user.profile?.year_of_study || "",
+  );
+  const [studentType, setStudentType] = useState(
+    user.profile?.studentType || "",
+  );
   const [preparingFor, setPreparingFor] = useState<any>(
-    user.profile?.preparingFor || ""
+    user.profile?.preparingFor || "",
   );
   const [bio, setBio] = useState(user.profile?.bio || "");
 
   // Professional fields
   const [institution, setInstitution] = useState(
-    user.profile?.institution || ""
+    user.profile?.institution || "",
   );
-  const [experience, setExperience] = useState(
-    user.profile?.experience || ""
-  );
+  const [experience, setExperience] = useState(user.profile?.experience || "");
   const [postGraduate, setPostGraduate] = useState(
-    user.profile?.post_graduate || ""
+    user.profile?.post_graduate || "",
   );
   const [professionName, setProfessionName] = useState(
-    user.profile?.professionName || ""
+    user.profile?.professionName || "",
   );
 
   useEffect(() => {
@@ -105,7 +109,7 @@ export default function EditStudentProfileModal({ open, setOpen, user }: any) {
               .map((name: string) => {
                 const option = examOptions.find(
                   (opt: any) =>
-                    opt.examName.toLowerCase() === name.toLowerCase()
+                    opt.examName.toLowerCase() === name.toLowerCase(),
                 );
                 return {
                   examName: option?.examName || name,
@@ -162,7 +166,7 @@ export default function EditStudentProfileModal({ open, setOpen, user }: any) {
           setUser({
             accessToken: accessToken || "",
             user: meRes?.data,
-          })
+          }),
         );
       }
 
@@ -214,10 +218,11 @@ export default function EditStudentProfileModal({ open, setOpen, user }: any) {
           </div>
           <div className="grid gap-2">
             <Label>Mobile No</Label>
-            <Input
+            <PhoneInput
+              placeholder="Enter phone number"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+8801XXXXXXXXX"
+              onChange={setPhone}
+              defaultCountry="IN"
             />
           </div>
 
@@ -258,7 +263,7 @@ export default function EditStudentProfileModal({ open, setOpen, user }: any) {
                       ? preparingFor
                           .map(
                             (item: { examName: string; description: string }) =>
-                              item.examName
+                              item.examName,
                           )
                           .join(", ")
                       : preparingFor || ""

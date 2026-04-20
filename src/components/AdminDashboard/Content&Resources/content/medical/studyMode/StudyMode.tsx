@@ -190,11 +190,13 @@ const StudyMode = () => {
                 <input
                   value={search}
                   onChange={(e) => {
+                    if (isSubjectModalOpen) return;
                     setSearch(e.target.value);
                     setCurrentPage(1);
                   }}
                   type="text"
                   placeholder={getPlaceholder()}
+                  disabled={isSubjectModalOpen} 
                   className="w-full outline-none bg-transparent text-sm"
                 />
                 {search && (
