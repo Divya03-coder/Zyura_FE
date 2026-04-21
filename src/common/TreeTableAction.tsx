@@ -1,30 +1,49 @@
 import CommonDropdown from "@/common/custom/CommonDropdown";
-import { MoreVertical } from "lucide-react";
+import AlertDialogBox from "@/common/custom/AlertDialogBox";
+import { MoreVertical, Trash2 } from "lucide-react";
 
 interface TreeTableActionProps {
   depth: number;
-  onAction: (action: "add" | "rename" | "delete") => void;
+  onAction: (action: "add" | "rename" | "delete") => Promise<void>;
 }
 
 const TreeTableAction: React.FC<TreeTableActionProps> = ({
   depth,
   onAction,
 }) => {
-  const actionLabels =
-    depth === 3
-      ? [
-          { label: "Rename", action: "rename" },
-          { label: "Delete", action: "delete" },
-        ]
-      : ([
-          depth === 0
-            ? { label: "Add System", action: "add" }
-            : depth === 1
-            ? { label: "Add Topic", action: "add" }
-            : { label: "Add Subtopic", action: "add" },
-          { label: "Rename", action: "rename" },
-          { label: "Delete", action: "delete" },
-        ] as const);
+  const getActionItems = () => {
+    const commonDelete = { 
+      label: "Delete", 
+      component: (
+        <AlertDialogBox
+          trigger={
+            <button className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-md cursor-pointer">
+              <Trash2 size={14} />
+              Delete
+            </button>
+          }
+          action={() => onAction("delete")}
+          isLoading={false}
+          title="Are you sure?"
+          description="This action cannot be undone. This will permanently delete the node."
+        />
+      )
+    };
+
+    if (depth === 3) {
+      return [
+        { label: "Rename", onClick: () => onAction("rename") },
+        commonDelete,
+      ];
+    }
+
+    const addLabel = depth === 0 ? "Add System" : depth === 1 ? "Add Topic" : "Add Subtopic";
+    return [
+      { label: addLabel, onClick: () => onAction("add") },
+      { label: "Rename", onClick: () => onAction("rename") },
+      commonDelete,
+    ];
+  };
 
   return (
     <CommonDropdown
@@ -33,12 +52,10 @@ const TreeTableAction: React.FC<TreeTableActionProps> = ({
           <MoreVertical className="w-4 h-4" />
         </button>
       }
-      items={actionLabels.map((item) => ({
-        label: item.label,
-        onClick: () => onAction(item.action as "add" | "rename" | "delete"),
-      }))}
+      items={getActionItems()}
     />
   );
 };
 
 export default TreeTableAction;
+

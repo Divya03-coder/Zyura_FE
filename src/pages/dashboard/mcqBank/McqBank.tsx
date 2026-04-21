@@ -20,7 +20,18 @@ import Pagination from "@/common/custom/Pagination";
 import McqBankFilterModal from "./McqBankFilterModal";
 import { useGetAllMCQBankQuery } from "@/store/features/MCQBank/MCQBank.api";
 
-const McqBankCard = ({ mcq }: { mcq: any }) => {
+// ✅ NEW IMPORT
+import AlertDialogBox from "@/common/custom/AlertDialogBox";
+
+const McqBankCard = ({
+  mcq,
+  onDelete,
+  isDeleting,
+}: {
+  mcq: any;
+  onDelete?: (id: string) => Promise<void>;
+  isDeleting?: boolean;
+}) => {
   const [localCompletedCount, setLocalCompletedCount] = useState(0);
 
   useEffect(() => {
@@ -37,12 +48,15 @@ const McqBankCard = ({ mcq }: { mcq: any }) => {
     }
   }, [mcq._id]);
 
-  // Priority logic: isComplete from API, then local storage
-  const isCompleted = mcq.isComplete || (localCompletedCount >= mcq.totalMcq && mcq.totalMcq > 0);
+  const isCompleted =
+    mcq.isComplete ||
+    (localCompletedCount >= mcq.totalMcq && mcq.totalMcq > 0);
+
   const inProgress = !isCompleted && localCompletedCount > 0;
 
-  // Display count logic: if completed, show full count. Else show local storage count.
-  const displayCount = isCompleted ? mcq.totalMcq : localCompletedCount;
+  const displayCount = isCompleted
+    ? mcq.totalMcq
+    : localCompletedCount;
 
   let cardBg = "bg-white border-slate-300 hover:border-blue-300";
   let badgeClasses = "bg-white text-black border border-slate-100";
@@ -61,10 +75,10 @@ const McqBankCard = ({ mcq }: { mcq: any }) => {
     actionText = "Continue";
   }
 
-  // const hierarchy = [mcq.subject, mcq.system, mcq.topic].filter(Boolean).join(" → ");
-
   return (
-    <div className={`group relative ${cardBg} border rounded-[16px] p-4 transition-all duration-300 flex flex-col h-full min-h-[160px]`}>
+    <div
+      className={`group relative ${cardBg} border rounded-[16px] p-4 transition-all duration-300 flex flex-col h-full min-h-[160px]`}
+    >
       <div className="flex justify-between items-start mb-3">
         {/* Top Badges */}
         <div className="flex flex-wrap gap-2">
@@ -81,7 +95,9 @@ const McqBankCard = ({ mcq }: { mcq: any }) => {
         </div>
 
         {/* Status Badge */}
-        <span className={`px-4 py-1.5 rounded-full text-[12px] font-normal whitespace-nowrap flex items-center h-fit ${badgeClasses}`}>
+        <span
+          className={`px-4 py-1.5 rounded-full text-[12px] font-normal whitespace-nowrap flex items-center h-fit ${badgeClasses}`}
+        >
           {statusText}
         </span>
       </div>
@@ -91,6 +107,23 @@ const McqBankCard = ({ mcq }: { mcq: any }) => {
           {mcq.title}
         </h4>
       </div>
+
+      {/* ✅ DELETE BUTTON (non-destructive addition) */}
+      {onDelete && (
+        <div className="absolute top-3 right-3">
+          <AlertDialogBox
+            action={() => onDelete(mcq._id)}
+            isLoading={!!isDeleting}
+            title="Delete MCQ Bank?"
+            description={`This will permanently delete "${mcq.title}". This action cannot be undone and all associated questions will be removed.`}
+            trigger={
+              <button className="text-red-500 text-xs font-bold hover:underline">
+                Delete
+              </button>
+            }
+          />
+        </div>
+      )}
 
       <div className="mt-auto">
         <Link
@@ -114,6 +147,10 @@ const McqBank = () => {
   const [openModal, setOpenModal] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
+
+  // ✅ NEW STATE FOR DELETE
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
+
   const [filters, setFilters] = useState({
     subject: "",
     system: "",
@@ -128,6 +165,7 @@ const McqBank = () => {
     page,
     limit: 10,
   });
+
   const MCQBank = data?.data;
   const meta = data?.meta;
   const totalPages = meta?.totalPages || 1;
@@ -142,8 +180,24 @@ const McqBank = () => {
     topic: string;
   }) => {
     setFilters(filterData);
-    setPage(1); // Reset to first page when filters change
+    setPage(1);
     setIsFilterOpen(false);
+  };
+
+  // ✅ DELETE HANDLER (API integrate here)
+  const handleDelete = async (id: string) => {
+    try {
+      setDeleteLoadingId(id);
+
+      // 🔥 TODO: replace with your actual API call
+      // await deleteMcqBank(id);
+
+      console.log("Deleting MCQ Bank:", id);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setDeleteLoadingId(null);
+    }
   };
 
   return (
@@ -182,13 +236,16 @@ const McqBank = () => {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setPage(1); // reset page
+                setPage(1);
               }}
             />
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
           </div>
           <p className="text-sm text-slate-500 font-medium">
-            <span className="text-slate-900 font-bold">{meta?.total || 0}</span> MCQ Banks available
+            <span className="text-slate-900 font-bold">
+              {meta?.total || 0}
+            </span>{" "}
+            MCQ Banks available
           </p>
         </div>
         <button
@@ -209,18 +266,26 @@ const McqBank = () => {
           <div className="my-10 grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
             {MCQBank?.length > 0 ? (
               MCQBank?.map((mcq: TMCQBank) => (
-                <McqBankCard key={mcq?._id} mcq={mcq} />
+                <McqBankCard
+                  key={mcq?._id}
+                  mcq={mcq}
+                  onDelete={handleDelete}
+                  isDeleting={deleteLoadingId === mcq._id}
+                />
               ))
             ) : (
               <div className="col-span-full py-20 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
                 <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500 font-bold text-lg">No MCQ Banks found</p>
-                <p className="text-slate-400 text-sm mt-1">Try adjusting your search or filters to find what you're looking for.</p>
+                <p className="text-slate-500 font-bold text-lg">
+                  No MCQ Banks found
+                </p>
+                <p className="text-slate-400 text-sm mt-1">
+                  Try adjusting your search or filters to find what you're looking for.
+                </p>
               </div>
             )}
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="mt-6">
               <Pagination
@@ -233,7 +298,6 @@ const McqBank = () => {
         </>
       )}
 
-      {/* Modals */}
       <QuizGeneratorDialog open={openModal} setOpen={setOpenModal} />
       {isFilterOpen && (
         <McqBankFilterModal

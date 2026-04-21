@@ -12,6 +12,7 @@ import { useMemo, useState } from "react";
 import DashboardSearch from "@/Layout/dashboard/DashboardSearch";
 import DashboardTopSection from "../AdminDashboard/reuseable/DashboardTopSection";
 import CreateFaqModal, { FaqFormType } from "./CreateFaqModal";
+import AlertDialogBox from "@/common/custom/AlertDialogBox";
 
 export const categoriesOptions: SelectOption<string>[] = [
   { label: "All Categories", value: "all" },
@@ -154,12 +155,19 @@ const FAQManagement = () => {
                                   <Edit2 size={14} /> Edit
                                 </button>
 
-                                <button
-                                  onClick={() => handleDelete(faq._id)}
-                                  className="flex items-center gap-1 px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer"
-                                >
-                                  <Trash2 size={14} /> Delete
-                                </button>
+                                  <AlertDialogBox
+                                  trigger={
+                                    <button
+                                      className="flex items-center gap-1 px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded cursor-pointer"
+                                    >
+                                      <Trash2 size={14} /> Delete
+                                    </button>
+                                  }
+                                  action={() => handleDelete(faq._id)}
+                                  isLoading={false}
+                                  title="Are you sure?"
+                                  description="This action cannot be undone. This will permanently delete the FAQ."
+                                />
                               </div>
                             </div>
                           </div>

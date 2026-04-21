@@ -1,4 +1,5 @@
 import { RiDeleteBinLine } from "react-icons/ri";
+import AlertDialogBox from "@/common/custom/AlertDialogBox";
 
 interface DeleteButtonProps {
   onDelete: () => Promise<void>;
@@ -11,23 +12,23 @@ const DeleteButton = ({
   isLoading = false,
   className = "",
 }: DeleteButtonProps) => {
-  const handleClick = async () => {
-    try {
-      await onDelete();
-    } catch (error) {
-      console.error("Failed to delete:", error);
-    }
-  };
-
   return (
-    <button
-      onClick={handleClick}
-      disabled={isLoading}
-      className={`text-[#B91C1C] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
-    >
-      <RiDeleteBinLine size={24} />
-    </button>
+    <AlertDialogBox
+      trigger={
+        <button
+          disabled={isLoading}
+          className={`text-[#B91C1C] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+        >
+          <RiDeleteBinLine size={24} />
+        </button>
+      }
+      action={onDelete}
+      isLoading={isLoading}
+      title="Are you sure?"
+      description="This action cannot be undone. This will permanently delete the item."
+    />
   );
 };
 
 export default DeleteButton;
+

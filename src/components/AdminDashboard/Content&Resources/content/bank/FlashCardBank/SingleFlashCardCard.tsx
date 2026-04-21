@@ -11,6 +11,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { useState } from "react";
 import SearchWithTabs from "../../medical/examMode/SearchWithTabs";
 import EditFlashCardModal, { EditFlashCardInput } from "./EditFlashCardModal";
+import  AlertDialogBox  from "@/common/custom/AlertDialogBox";
 
 type FlashCardProps = {
   bankId: string;
@@ -145,20 +146,27 @@ const SingleFlashCardCard: React.FC<FlashCardProps> = ({ bankId }) => {
                       Edit
                     </button>
 
-                    <button
-                      disabled={deletingId === flashCard.flashCardId}
-                      onClick={() =>
+                    <AlertDialogBox
+                      trigger={
+                        <button
+                          disabled={deletingId === flashCard.flashCardId}
+                          className="px-4 py-2 text-sm bg-red-500 cursor-pointer  hover:bg-red-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {deletingId === flashCard.flashCardId
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
+                      }
+                      action={() =>
                         handleDelete(
                           singleMcqBank?.data._id ?? "",
                           flashCard.flashCardId
                         )
                       }
-                      className="px-4 py-2 text-sm bg-red-500 cursor-pointer  hover:bg-red-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {deletingId === flashCard.flashCardId
-                        ? "Deleting..."
-                        : "Delete"}
-                    </button>
+                      isLoading={deletingId === flashCard.flashCardId}
+                      title="Are you sure?"
+                      description="This action cannot be undone. This will permanently delete the flash card."
+                    />
                   </div>
                 </div>
               ))}
